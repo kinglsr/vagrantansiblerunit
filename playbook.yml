@@ -1,0 +1,63 @@
+---
+- hosts: all
+  become: True
+  gather_facts: True
+  tasks:
+    - include: tasks/deps.yml
+
+    # your code goes here ...
+    - name: install the latest version of nginx
+      yum:
+       name: nginx
+       state: latest
+    - name: install runit
+      yum:
+        name: https://packagecloud.io/imeyer/runit/packages/el/7/runit-2.1.2-3.el7.centos.x86_64.rpm/download.rpm
+        state: latest
+    - name: copy the config file 
+      template: 
+        src: /vagrant/config/nginx.conf
+        dest: /etc/nginx/nginx.conf
+        owner: root
+        group: wheel
+        mode: 0644
+    - name: copy the key files 
+      template: 
+        src: /vagrant/files/self-signed.crt
+        dest: /etc/nginx/self-signed.crt
+        owner: root
+        group: wheel
+        mode: 0644
+    - name: copy the key files 
+      template: 
+        src: /vagrant/files/self-signed.key
+        dest: /etc/nginx/self-signed.key
+        owner: root
+        group: wheel
+        mode: 0644
+    - name: Unarchive the application
+      unarchive:
+        src: /vagrant/application.zip
+        dest: /opt
+    - name: create service
+      file: 
+        path: /etc/service/application
+        state: directory
+    - name: move run file
+      template:
+        src: /opt/application/run
+        dest: /etc/service/application/run
+        owner: root
+        mode: 777
+    - name: runit
+      runit: 
+        name: application 
+        enabled: true 
+        state: restarted
+        service_dir: /opt/application
+        service_src: /etc/service       
+      notify:
+      - restart nginx
+  handlers:
+   - name: restart nginx
+     service: name=nginx state=restarted
